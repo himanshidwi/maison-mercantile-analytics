@@ -1,6 +1,7 @@
 from pathlib import Path
 import calendar
 import html
+import math
 
 import duckdb
 import pandas as pd
@@ -131,9 +132,11 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{ background:{PANEL}; border:1p
 div[data-testid="stVerticalBlockBorderWrapper"] > div {{ padding:1rem 1.05rem .85rem; }}
 div[data-testid="stDataFrame"] {{ border:1px solid {BORDER}; border-radius:8px; overflow:hidden; }}
 div[data-baseweb="select"] > div {{ background:{PANEL}; border-color:#DCCBC6; border-radius:7px; }}
-input,textarea {{ background:{PANEL} !important; border-color:#DCCBC6 !important; color:{INK} !important; border-radius:7px !important; }}
-.stButton > button {{ background:{BURGUNDY}; color:#FFF8F2; border:1px solid {BURGUNDY}; border-radius:7px; font-weight:600; }}
-.stButton > button:hover {{ background:{MAROON}; border-color:{MAROON}; color:#FFF8F2; }}
+input, textarea {{ background:{PANEL} !important; border-color:#DCCBC6 !important; color:{INK} !important; border-radius:7px !important; -webkit-text-fill-color:{INK} !important; }}
+textarea::placeholder {{ color:{MUTED} !important; -webkit-text-fill-color:{MUTED} !important; opacity:1 !important; }}
+.stButton > button {{ background:{BURGUNDY} !important; color:#FFF8F2 !important; border:1px solid {BURGUNDY} !important; border-radius:7px; font-weight:600; }}
+.stButton > button p, .stButton > button span, .stButton > button div {{ color:#FFF8F2 !important; }}
+.stButton > button:hover {{ background:{MAROON} !important; border-color:{MAROON} !important; color:#FFFFFF !important; }}
 div[data-testid="stAlert"] {{ border-radius:8px; }}
 hr {{ border-color:{BORDER}; }}
 .footer {{ color:#9B8988; text-align:center; letter-spacing:.12em; font-size:.62rem; padding:1rem 0 .2rem; }}
@@ -422,22 +425,43 @@ if page == "Executive Overview":
             st.markdown("<div class=\"panel-subtitle\">Worldwide distribution · hover for exact values</div>", unsafe_allow_html=True)
             if not market.empty:
                 map_data = market.copy()
+                # Signed log transform prevents the largest market from flattening
+                # colour differences between smaller markets. Hover still shows actual GBP.
+                map_data["net_revenue_color"] = map_data["net_revenue"].apply(
+                    lambda value: math.copysign(math.log10(1 + abs(float(value))), float(value))
+                )
                 fig_map = px.choropleth(
-                    map_data, locations="Country", locationmode="country names", color="net_revenue",
+                    map_data, locations="Country", locationmode="country names", color="net_revenue_color",
                     color_continuous_scale=[[0, "#F1E2E1"], [.35, "#C68D98"], [.7, "#8A3D53"], [1, MAROON]],
-                    hover_name="Country", hover_data={"net_revenue":":,.2f", "Country":False},
-                    labels={"net_revenue":"Net revenue (£)"}, projection="natural earth"
+                    hover_name="Country", hover_data={"net_revenue":":,.2f", "net_revenue_color":False, "Country":False},
+                    labels={"net_revenue":"Net revenue (£)", "net_revenue_color":"Signed log scale"}, projection="natural earth"
                 )
+                # Larger map and a business-friendly colourbar: tick positions use the
+                # transformed scale, while labels show approximate actual GBP values.
                 fig_map.update_geos(
-                    showframe=False, showcoastlines=False, showcountries=True, countrycolor="#E4D8D3",
+                    showframe=False, showcoastlines=False, showcountries=True, countrycolor="#DCCBC6",
                     showland=True, landcolor="#F4EBE5", showocean=True, oceancolor=PANEL,
-                    bgcolor=PANEL, projection_type="natural earth"
+                    bgcolor=PANEL, projection_type="natural earth", projection_scale=1.12,
+                    center=dict(lat=10, lon=0)
                 )
+                color_max = float(map_data["net_revenue_color"].max()) if not map_data.empty else 0.0
+                color_min = float(map_data["net_revenue_color"].min()) if not map_data.empty else 0.0
+                revenue_ticks = [0, 1_000, 10_000, 100_000, 1_000_000, 10_000_000]
+                tickvals = [math.log10(1 + value) for value in revenue_ticks
+                            if color_min <= math.log10(1 + value) <= color_max]
+                ticktext = [f"£{value/1_000_000:g}M" if value >= 1_000_000 else
+                            (f"£{value/1_000:g}K" if value >= 1_000 else "£0")
+                            for value in revenue_ticks
+                            if color_min <= math.log10(1 + value) <= color_max]
                 fig_map.update_layout(
-                    height=330, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor=PANEL, plot_bgcolor=PANEL,
-                    font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11), coloraxis_colorbar=dict(
-                        title="", thickness=8, len=.65, tickfont=dict(size=10,color=INK), outlinewidth=0, x=1.0
-                    )
+                    height=430, margin=dict(l=0, r=42, t=4, b=4),
+                    paper_bgcolor=PANEL, plot_bgcolor=PANEL,
+                    font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11),
+                    coloraxis=dict(colorbar=dict(
+                        title=dict(text="Net revenue", font=dict(color=INK, size=11)),
+                        thickness=12, len=.78, tickvals=tickvals, ticktext=ticktext,
+                        tickfont=dict(size=10, color=INK), outlinewidth=0, x=1.02
+                    ))
                 )
                 st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar":False}, key="country_choropleth")
             else:
@@ -541,14 +565,42 @@ elif page == "Market Intelligence":
     with left:
         with st.container(border=True):
             st.markdown("<div class=\"panel-title\">World revenue map</div>", unsafe_allow_html=True)
-            st.markdown("<div class=\"panel-subtitle\">Darker burgundy indicates higher net revenue</div>", unsafe_allow_html=True)
+            st.markdown("<div class=\"panel-subtitle\">Colour intensity uses a log scale; hover for exact net revenue (£)</div>", unsafe_allow_html=True)
             if not market.empty:
-                fig=px.choropleth(market,locations="Country",locationmode="country names",color="net_revenue",
+                map_data = market.copy()
+                map_data["net_revenue_color"] = map_data["net_revenue"].apply(
+                    lambda value: math.copysign(math.log10(1 + abs(float(value))), float(value))
+                )
+                fig=px.choropleth(map_data,locations="Country",locationmode="country names",color="net_revenue_color",
                     color_continuous_scale=[[0,"#F1E2E1"],[.35,"#C68D98"],[.7,"#8A3D53"],[1,MAROON]],
-                    hover_name="Country",hover_data={"net_revenue":":,.2f"},labels={"net_revenue":"Net revenue (£)"},projection="natural earth")
-                fig.update_geos(showframe=False,showcoastlines=False,showcountries=True,countrycolor="#E4D8D3",showland=True,landcolor="#F4EBE5",showocean=True,oceancolor=PANEL,bgcolor=PANEL)
-                fig.update_layout(height=480,margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor=PANEL,plot_bgcolor=PANEL,font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11),
-                                  coloraxis_colorbar=dict(title="",thickness=9,tickfont=dict(size=10,color=INK),outlinewidth=0))
+                    hover_name="Country",hover_data={"net_revenue":":,.2f", "net_revenue_color":False},
+                    labels={"net_revenue":"Net revenue (£)", "net_revenue_color":"Signed log scale"},projection="natural earth")
+                fig.update_geos(
+                    showframe=False, showcoastlines=False, showcountries=True,
+                    countrycolor="#DCCBC6", showland=True, landcolor="#F4EBE5",
+                    showocean=True, oceancolor=PANEL, bgcolor=PANEL,
+                    projection_type="natural earth", projection_scale=1.2,
+                    center=dict(lat=10, lon=0)
+                )
+                color_max = float(map_data["net_revenue_color"].max()) if not map_data.empty else 0.0
+                color_min = float(map_data["net_revenue_color"].min()) if not map_data.empty else 0.0
+                revenue_ticks = [0, 1_000, 10_000, 100_000, 1_000_000, 10_000_000]
+                tickvals = [math.log10(1 + value) for value in revenue_ticks
+                            if color_min <= math.log10(1 + value) <= color_max]
+                ticktext = [f"£{value/1_000_000:g}M" if value >= 1_000_000 else
+                            (f"£{value/1_000:g}K" if value >= 1_000 else "£0")
+                            for value in revenue_ticks
+                            if color_min <= math.log10(1 + value) <= color_max]
+                fig.update_layout(
+                    height=540, margin=dict(l=0, r=42, t=4, b=4),
+                    paper_bgcolor=PANEL, plot_bgcolor=PANEL,
+                    font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11),
+                    coloraxis=dict(colorbar=dict(
+                        title=dict(text="Net revenue", font=dict(color=INK, size=11)),
+                        thickness=12, len=.8, tickvals=tickvals, ticktext=ticktext,
+                        tickfont=dict(size=10, color=INK), outlinewidth=0, x=1.02
+                    ))
+                )
                 st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False},key="market_world_map")
 
     with right:
@@ -577,9 +629,27 @@ elif page == "Sales Diagnostics":
         fig=px.bar(diag,x="month",y="amount",color="type",barmode="group",
                    color_discrete_map={"Positive sales":BURGUNDY,"Negative line value":ROSE},
                    labels={"month":"Month","amount":"Value (£)","type":"Transaction value"})
-        fig.update_layout(height=380,margin=dict(l=8,r=8,t=8,b=8),paper_bgcolor=PANEL,plot_bgcolor=PANEL,font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11),legend=dict(orientation="h", y=1.1, font=dict(color=INK, size=11)))
-        fig.update_xaxes(type="category", tickangle=-25, showgrid=False, tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
-        fig.update_yaxes(tickprefix="£", tickformat="~s", gridcolor="#F0E7E2", tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
+        fig.update_layout(
+            height=380,
+            margin=dict(l=8, r=8, t=42, b=28),
+            paper_bgcolor=PANEL,
+            plot_bgcolor=PANEL,
+            font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11),
+            legend=dict(
+                orientation="h",
+                y=1.12,
+                title_font=dict(color=INK, size=12),
+                font=dict(color=INK, size=11),
+            ),
+        )
+        fig.update_xaxes(
+            type="category", tickangle=-25, showgrid=False,
+            tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12),
+        )
+        fig.update_yaxes(
+            tickprefix="£", tickformat="~s", gridcolor="#F0E7E2",
+            tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12),
+        )
         st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False},key="diagnostic_composition")
     with st.expander("Monthly diagnostic table"):
         st.dataframe(monthly.rename(columns={"month":"Month","net_revenue":"Net revenue (£)","positive_sales":"Positive sales (£)","negative_value":"Negative line value (£)","mom_pct":"MoM change (%)"}),use_container_width=True,hide_index=True)
