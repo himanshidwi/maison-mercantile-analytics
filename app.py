@@ -196,14 +196,14 @@ def plot_theme(fig, height=330):
     fig.update_layout(
         height=height, autosize=True, margin=dict(l=8, r=8, t=12, b=12),
         paper_bgcolor=PANEL, plot_bgcolor=PANEL,
-        font=dict(family="DM Sans, Arial, sans-serif", color=MUTED, size=10),
+        font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11),
         hoverlabel=dict(bgcolor=MAROON, bordercolor=BURGUNDY, font=dict(color="#FFF8F2")),
         showlegend=False,
     )
     fig.update_xaxes(showgrid=False, showline=True, linecolor=BORDER, zeroline=False,
-                     tickfont=dict(color=MUTED, size=10))
+                     tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
     fig.update_yaxes(showgrid=True, gridcolor="#F0E7E2", showline=False, zeroline=False,
-                     tickfont=dict(color=MUTED, size=10))
+                     tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
     return fig
 
 def metric(col, icon, label, value, foot):
@@ -404,10 +404,12 @@ if page == "Executive Overview":
                     hovertemplate="<b>%{x}</b><br>Net revenue: £%{y:,.2f}<br>Positive sales: £%{customdata[0]:,.2f}<br>Negative line value: £%{customdata[1]:,.2f}<extra></extra>"
                 ))
                 fig.update_layout(height=330, margin=dict(l=4,r=8,t=8,b=8), paper_bgcolor=PANEL, plot_bgcolor=PANEL,
-                                  font=dict(color=MUTED,size=10), showlegend=False)
+                                  font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11), showlegend=False)
                 fig.update_xaxes(type="category", tickmode="array", tickvals=monthly["month"].tolist(),
-                                 ticktext=month_labels, tickangle=-25, showgrid=False, linecolor=BORDER)
-                fig.update_yaxes(tickprefix="£", tickformat="~s", gridcolor="#F0E7E2", zeroline=False)
+                                 ticktext=month_labels, tickangle=-25, showgrid=False, linecolor=BORDER,
+                                 tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
+                fig.update_yaxes(tickprefix="£", tickformat="~s", gridcolor="#F0E7E2", zeroline=False,
+                                 tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
                 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key="overview_revenue_trend")
                 if partial:
                     st.caption("* Partial month based on the available source-data date coverage.")
@@ -433,8 +435,8 @@ if page == "Executive Overview":
                 )
                 fig_map.update_layout(
                     height=330, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor=PANEL, plot_bgcolor=PANEL,
-                    font=dict(color=MUTED,size=10), coloraxis_colorbar=dict(
-                        title="", thickness=8, len=.65, tickfont=dict(size=9,color=MUTED), outlinewidth=0, x=1.0
+                    font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11), coloraxis_colorbar=dict(
+                        title="", thickness=8, len=.65, tickfont=dict(size=10,color=INK), outlinewidth=0, x=1.0
                     )
                 )
                 st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar":False}, key="country_choropleth")
@@ -512,9 +514,9 @@ elif page == "Product Intelligence":
                 fig=px.bar(top,x="positive_sales",y="product",orientation="h",color_discrete_sequence=[BURGUNDY],
                            labels={"positive_sales":"Positive sales (£)","product":""},hover_data={"units_sold":":,.0f","net_revenue":":,.2f"})
                 fig.update_traces(hovertemplate="<b>%{y}</b><br>Positive sales: £%{x:,.2f}<extra></extra>",marker_line_width=0)
-                fig.update_layout(height=470,margin=dict(l=5,r=8,t=8,b=8),paper_bgcolor=PANEL,plot_bgcolor=PANEL,font=dict(color=MUTED,size=10))
-                fig.update_xaxes(tickprefix="£",tickformat="~s",gridcolor="#F0E7E2")
-                fig.update_yaxes(showgrid=False,automargin=True)
+                fig.update_layout(height=470,margin=dict(l=5,r=8,t=8,b=8),paper_bgcolor=PANEL,plot_bgcolor=PANEL,font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11))
+                fig.update_xaxes(tickprefix="£", tickformat="~s", gridcolor="#F0E7E2", tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
+                fig.update_yaxes(showgrid=False, automargin=True, tickfont=dict(color=INK, size=10), title_font=dict(color=INK, size=12))
                 st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False},key="products_bar")
             else:
                 st.info("No products match those filters.")
@@ -545,8 +547,8 @@ elif page == "Market Intelligence":
                     color_continuous_scale=[[0,"#F1E2E1"],[.35,"#C68D98"],[.7,"#8A3D53"],[1,MAROON]],
                     hover_name="Country",hover_data={"net_revenue":":,.2f"},labels={"net_revenue":"Net revenue (£)"},projection="natural earth")
                 fig.update_geos(showframe=False,showcoastlines=False,showcountries=True,countrycolor="#E4D8D3",showland=True,landcolor="#F4EBE5",showocean=True,oceancolor=PANEL,bgcolor=PANEL)
-                fig.update_layout(height=480,margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor=PANEL,plot_bgcolor=PANEL,font=dict(color=MUTED,size=10),
-                                  coloraxis_colorbar=dict(title="",thickness=9,tickfont=dict(size=9),outlinewidth=0))
+                fig.update_layout(height=480,margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor=PANEL,plot_bgcolor=PANEL,font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11),
+                                  coloraxis_colorbar=dict(title="",thickness=9,tickfont=dict(size=10,color=INK),outlinewidth=0))
                 st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False},key="market_world_map")
 
     with right:
@@ -575,9 +577,9 @@ elif page == "Sales Diagnostics":
         fig=px.bar(diag,x="month",y="amount",color="type",barmode="group",
                    color_discrete_map={"Positive sales":BURGUNDY,"Negative line value":ROSE},
                    labels={"month":"Month","amount":"Value (£)","type":"Transaction value"})
-        fig.update_layout(height=380,margin=dict(l=8,r=8,t=8,b=8),paper_bgcolor=PANEL,plot_bgcolor=PANEL,font=dict(color=MUTED,size=10),legend=dict(orientation="h",y=1.1))
-        fig.update_xaxes(type="category",tickangle=-25,showgrid=False)
-        fig.update_yaxes(tickprefix="£",tickformat="~s",gridcolor="#F0E7E2")
+        fig.update_layout(height=380,margin=dict(l=8,r=8,t=8,b=8),paper_bgcolor=PANEL,plot_bgcolor=PANEL,font=dict(family="DM Sans, Arial, sans-serif", color=INK, size=11),legend=dict(orientation="h", y=1.1, font=dict(color=INK, size=11)))
+        fig.update_xaxes(type="category", tickangle=-25, showgrid=False, tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
+        fig.update_yaxes(tickprefix="£", tickformat="~s", gridcolor="#F0E7E2", tickfont=dict(color=INK, size=11), title_font=dict(color=INK, size=12))
         st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False},key="diagnostic_composition")
     with st.expander("Monthly diagnostic table"):
         st.dataframe(monthly.rename(columns={"month":"Month","net_revenue":"Net revenue (£)","positive_sales":"Positive sales (£)","negative_value":"Negative line value (£)","mom_pct":"MoM change (%)"}),use_container_width=True,hide_index=True)
